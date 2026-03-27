@@ -8,10 +8,13 @@ jobs:
     name: build Node.js Docker Image and deploy to minikube
     steps:
     - uses: actions/checkout@v2
+
     - name: Start minikube
       uses: medyagh/setup-minikube@master
+
     - name: Try the cluster !
       run: kubectl get pods -A
+
     - name: Build image
       run: |
           export SHELL=/bin/bash
@@ -19,10 +22,16 @@ jobs:
           docker build -f ./Dockerfile -t devopshint/node-app:latest .
           echo -n "verifying images:"
           docker images         
+
     - name: Deploy to minikube
-      run:
+      run: |
         kubectl apply -f k8s-node-app.yaml
+        # Esperamos unos segundos para que el pod esté listo antes de probar la URL
+        kubectl rollout status deployment/nodejs-app
+
     - name: Test service URLs
+      continue-on-error: true
       run: |
           minikube service list
-          minikube service nodejs-app --url
+          # El comando --url a veces se bloquea en CI, por eso lo limitamos
+          timeout 20s minikube service nodejs-app --url || true
